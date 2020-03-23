@@ -1,0 +1,34 @@
+<html>
+  <head>
+    <!-- include polyfills for custom event, Symbol and Custom Elements -->
+    <script src="//unpkg.com/babel-polyfill@6.26.0/dist/polyfill.js"></script>
+    <script src="//unpkg.com/custom-event-polyfill@0.3.0/custom-event-polyfill.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/document-register-element/1.8.0/document-register-element.js"></script>
+
+    <!-- use client-side babel -->
+    <script src="//unpkg.com/babel-standalone@6.26.0/babel.js"></script>
+
+    <script src="//unpkg.com/d3@5.15.0/dist/d3.min.js"></script>
+    <script src="//unpkg.com/d3fc@14.1.10/build/d3fc.js"></script>
+    <script src="//unpkg.com/d3-dsv@1.2.0/dist/d3-dsv.min.js"></script>
+    <script src="//unpkg.com/d3-fetch@1.1.2/dist/d3-fetch.min.js"></script>
+    <script src="//unpkg.com/flatbush@3.1.1/flatbush.min.js"></script>
+    <script src="//unpkg.com/d3-svg-annotation@2.5.1/indexRollup.js"></script>
+    <style>
+      .annotation-note-bg {
+        fill-opacity: 0.8;
+      }
+
+      .annotation-note-label,
+      .annotation-note-title {
+        fill: black;
+      }
+    </style>
+  </head>
+  <body id="body">
+    <div id="chart" style="height: 100vh;"></div>
+    <script src="util.js" type="text/babel"></script>
+    <script src="annotationSeries.js" type="text/babel"></script>
+    <script src="index.js" type="text/babel"></script>
+  </body>
+</html>
