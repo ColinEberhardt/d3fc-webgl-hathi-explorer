@@ -4,13 +4,17 @@ const redraw = () =>
     .node()
     .requestRedraw();
 
+const webglColor = color => {
+  const { r, g, b, opacity } = d3.color(color).rgb();
+  return [r / 255, g / 255, b / 255, opacity];
+};
+
 d3.tsv("data.tsv", d => ({
   ...d,
   x: Number(d.x),
   y: Number(d.y),
   year: Number(d.date)
 })).then(data => {
-  console.log(data.length)
   // some books don't have a year
   data = data.filter(d => d.year);
 
@@ -20,18 +24,11 @@ d3.tsv("data.tsv", d => ({
   data.forEach(d => index.add(d.x - p, d.y - p, d.x + p, d.y + p));
   index.finish();
 
-  // const yearColorScale = d3
-  //   .scaleSequential()
-  //   .domain([1800, 2000])
-  //   .interpolator(d3.interpolateViridis);
-
-  // create a color buffer where the color for each datapoint
-  // is dependant on language
   const languageColorScale = d3.scaleOrdinal(d3.schemeCategory10);
-  const colors = createColorBuffer(data, d =>
-    d3.color(languageColorScale(hashCode(d.language) % 10))
-  );
-  const colorBuilder = fc.projectedAttributeBuilder(colors);
+  const fillColor = fc
+    .webglFillColor()
+    .value((d, i) => webglColor(languageColorScale(hashCode(d.language) % 10)))
+    .data(data);
 
   const xExtent = fc.extentLinear().accessors([d => d.x]);
   const yExtent = fc.extentLinear().accessors([d => d.y]);
@@ -39,39 +36,18 @@ d3.tsv("data.tsv", d => ({
   const xScale = d3.scaleLinear().domain(xExtent(data));
   const yScale = d3.scaleLinear().domain(yExtent(data));
 
-  const sizeScale = d3
-    .scaleLinear()
-    .domain([100, 5])
-    .range([1, 5]);
-
   const line = fc
     .seriesWebglPoint()
-    .equals((a, b)=>{ return a.length !== 0 })
-    .size(() =>
-      Math.pow(
-        Math.max(
-          0.2,
-          sizeScale(Math.abs(yScale.domain()[0] - yScale.domain()[1]))
-        ),
-        2
-      )
-    )
+    .equals((a, b) => {
+      return a.length !== 0;
+    })
+    .size(1)
     // optimised 'defined' step, we know that all datapoints are defined
     .defined(() => true)
     .crossValue(d => d.x)
     .mainValue(d => d.y)
     .decorate(program => {
-      // program
-      //   .vertexShader()
-      //   .appendHeader(fc.vertexShaderSnippets.multiColor.header)
-      //   .appendBody(fc.vertexShaderSnippets.multiColor.body);
-
-      // program
-      //   .fragmentShader()
-      //   .appendHeader(fc.fragmentShaderSnippets.multiColor.header)
-      //   .appendBody(fc.fragmentShaderSnippets.multiColor.body);
-
-      // program.buffers().attribute("aColor", colorBuilder);
+      return fillColor(program);
     });
 
   const xScaleOriginal = xScale.copy();
@@ -119,7 +95,7 @@ d3.tsv("data.tsv", d => ({
         dy: 20
       };
     }
-    
+
     redraw();
   });
 
@@ -137,7 +113,7 @@ d3.tsv("data.tsv", d => ({
         .mapping(data => data.data)
     )
     .svgPlotArea(
-      // onl render the annotations series on the SVG layer
+      // only render the annotations series on the SVG layer
       fc
         .seriesSvgMulti()
         .series([annotationSeries])
