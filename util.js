@@ -13,7 +13,6 @@ const hashCode = s =>
     return a & a;
   }, 0);
 
-
 const createColorBuffer = (data, colorFunc) => {
   const colors = new Float32Array(data.length * 4);
   let i = 0;
