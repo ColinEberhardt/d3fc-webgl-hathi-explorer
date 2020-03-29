@@ -1,9 +1,9 @@
-function streamingTsvParser(file, callback) {
+onmessage = ({ data }) => {
   const textDecoder = new TextDecoder("utf-8");
   let columnHeadings;
   let previousChunk = "";
 
-  fetch(file)
+  fetch(data)
     .then(response => {
       if (!response.ok) {
         throw Error(response.status + " " + response.statusText);
@@ -56,7 +56,7 @@ function streamingTsvParser(file, callback) {
               })
               .filter(i => i);
 
-            callback(items);
+            postMessage(items);
 
             controller.enqueue(value);
             read();
@@ -75,4 +75,4 @@ function streamingTsvParser(file, callback) {
     .catch(error => {
       console.error(error);
     });
-}
+};

@@ -10,10 +10,11 @@ const webglColor = color => {
 };
 
 let data = [];
+let dataChanged = false;
 
-streamingTsvParser("data.tsv", (rows) => {
-  // some books don't have a year
-  rows = rows
+var streamingLoaderWorker = new Worker("streaming-tsv-parser.js");
+streamingLoaderWorker.onmessage = e => {
+  const rows = e.data
     .map(d => ({
       ...d,
       x: Number(d.x),
@@ -23,18 +24,10 @@ streamingTsvParser("data.tsv", (rows) => {
     .filter(d => d.year);
 
   data.push(...rows);
-
-  console.log(data.length);
-
-  d3.select("#chart")
-  .datum({ annotations, data })
-  .call(chart);
-
+  dataChanged = true;
   redraw();
-})
-
-
-
+};
+streamingLoaderWorker.postMessage("data.tsv");
 
 // create a flatbush spacial index
 // const index = new Flatbush(data.length);
@@ -54,16 +47,15 @@ streamingTsvParser("data.tsv", (rows) => {
 // const xScale = d3.scaleLinear().domain(xExtent(data));
 // const yScale = d3.scaleLinear().domain(yExtent(data));
 
-
 const xScale = d3.scaleLinear().domain([-50, 50]);
 const yScale = d3.scaleLinear().domain([-50, 50]);
-
-
 
 const line = fc
   .seriesWebglPoint()
   .equals((a, b) => {
-    return a.length !== b.length;
+    const dataChangedTemp = dataChanged;
+    dataChanged = false;
+    return !dataChangedTemp;
   })
   .size(1)
   // optimised 'defined' step, we know that all datapoints are defined
@@ -143,16 +135,17 @@ const chart = fc
       .series([annotationSeries])
       .mapping(data => data.annotations)
   )
-  .decorate(sel =>
-    sel
-      .enter()
-      .select("d3fc-svg.plot-area")
-      .on("measure.range", () => {
-        xScaleOriginal.range([0, d3.event.detail.width]);
-        yScaleOriginal.range([d3.event.detail.height, 0]);
-      })
-      .call(zoom)
-      // .call(pointer)
+  .decorate(
+    sel =>
+      sel
+        .enter()
+        .select("d3fc-svg.plot-area")
+        .on("measure.range", () => {
+          xScaleOriginal.range([0, d3.event.detail.width]);
+          yScaleOriginal.range([d3.event.detail.height, 0]);
+        })
+        .call(zoom)
+    // .call(pointer)
   );
 
 // render the chart with the required data
