@@ -13,16 +13,23 @@ const hashCode = s =>
     return a & a;
   }, 0);
 
-const createColorBuffer = (data, colorFunc) => {
-  const colors = new Float32Array(data.length * 4);
-  let i = 0;
-  data.forEach(d => {
-    const colObj = colorFunc(d);
-    colors[i++] = colObj.r / 255;
-    colors[i++] = colObj.g / 255;
-    colors[i++] = colObj.b / 255;
-    colors[i++] = colObj.opacity;
-  });
-  return colors;
-  
+const webglColor = color => {
+  const { r, g, b, opacity } = d3.color(color).rgb();
+  return [r / 255, g / 255, b / 255, opacity];
+};
+
+const createLatch = () => {
+  let latched = false;
+  return {
+    set: () => {
+      latched = true
+    },
+    isSet: () => {
+      previousLatchedState = latched;
+      if (latched) {
+        latched = false;
+      }
+      return previousLatchedState;
+    }
+  }
 }

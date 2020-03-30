@@ -1,82 +1,68 @@
-onmessage = ({ data }) => {
-  const textDecoder = new TextDecoder("utf-8");
+const textDecoder = new TextDecoder("utf-8");
+
+onmessage = async ({ data: filename }) => {
   let columnHeadings;
   let previousChunk = "";
+  let totalBytes = 0;
 
-  fetch(data)
-    .then(response => {
-      if (!response.ok) {
-        throw Error(response.status + " " + response.statusText);
-      }
+  const response = await fetch(filename);
 
-      if (!response.body) {
-        throw Error("ReadableStream not yet supported in this browser.");
-      }
+  if (!response.body) {
+    // TODO: handle this error
+    throw Error("ReadableStream not yet supported in this browser.");
+  }
 
-      const contentLength = response.headers.get("content-length");
-      if (!contentLength) {
-        throw Error("Content-Length response header unavailable");
-      }
+  const streamedResponse = new Response(
+    new ReadableStream({
+      start(controller) {
+        const reader = response.body.getReader();
 
-      const total = parseInt(contentLength, 10);
-      let loaded = 0;
+        const read = async () => {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            return;
+          }
 
-      return new ReadableStream({
-        start(controller) {
-          const reader = response.body.getReader();
+          // decode and split into lines
+          const textData = textDecoder.decode(value) + previousChunk;
+          const lines = textData.split("\n");
 
-          const read = async () => {
-            const { done, value } = await reader.read();
-            if (done) {
-              controller.close();
-              return;
-            }
+          // the first line is our column headings
+          if (!columnHeadings) {
+            columnHeadings = lines[0].split("\t");
+            lines.shift();
+          }
+          // the last line is probably partial - so append to the next chunk
+          previousChunk = lines.pop();
 
-            // decode and split into lines
-            const textData = textDecoder.decode(value) + previousChunk;
-            const lines = textData.split("\n");
+          // convert each row to an object
+          const items = lines
+            .map(row => {
+              const cells = row.split("\t");
+              if (cells.length !== columnHeadings.length) {
+                return null;
+              }
+              let rowValue = {};
+              columnHeadings.forEach((h, i) => {
+                rowValue[h] = cells[i];
+              });
+              return rowValue;
+            })
+            .filter(i => i);
 
-            // the first line is our column headings
-            if (!columnHeadings) {
-              columnHeadings = lines[0].split("\t");
-              lines.shift();
-            }
-            // the last line is probably partial - so append to the next chunk
-            previousChunk = lines.pop();
+          totalBytes += value.byteLength;
+          postMessage({ items, totalBytes });
 
-            // convert each row to an object
-            const items = lines
-              .map(row => {
-                const cells = row.split("\t");
-                if (cells.length !== columnHeadings.length) {
-                  return null;
-                }
-                let rowValue = {};
-                columnHeadings.forEach((h, i) => {
-                  rowValue[h] = cells[i];
-                });
-                return rowValue;
-              })
-              .filter(i => i);
-
-            loaded += value.byteLength;
-            postMessage({ items, progress: loaded / total });
-
-            controller.enqueue(value);
-            read();
-          };
-
+          controller.enqueue(value);
           read();
-        }
-      });
+        };
+
+        read();
+      }
     })
-    .then(stream => new Response(stream))
-    .then(response => response.text())
-    .then(data => {
-      console.log("download completed");
-      console.log(data.length);
-    })
-    .catch(error => {
-      console.error(error);
-    });
+  );
+
+  const data = await streamedResponse.text();
+  postMessage({ items: [], totalBytes: data.length, finished: true });
 };

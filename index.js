@@ -1,24 +1,33 @@
+// Enqueues a redraw to occur on the next animation frame
 const redraw = () =>
   d3
     .select("d3fc-group")
     .node()
     .requestRedraw();
 
-const webglColor = color => {
-  const { r, g, b, opacity } = d3.color(color).rgb();
-  return [r / 255, g / 255, b / 255, opacity];
-};
-
+const progressElement = document.getElementById("progress");
+const renderLatch = createLatch();
 let data = [];
 let dataChanged = false;
 let fillColor = i => i;
 let index;
 
-const progressElement = document.getElementById("progress");
+const createAnnotationData = datapoint => ({
+  note: {
+    label: datapoint.first_author_name + " " + datapoint.year,
+    bgPadding: 5,
+    title: trunc(datapoint.title, 100)
+  },
+  x: datapoint.x,
+  y: datapoint.y,
+  dx: 20,
+  dy: 20
+});
 
-var streamingLoaderWorker = new Worker("streaming-tsv-parser.js");
-streamingLoaderWorker.onmessage = e => {
-  const rows = e.data.items
+// create a web worker that streams the chart data
+const streamingLoaderWorker = new Worker("streaming-tsv-parser.js");
+streamingLoaderWorker.onmessage = ({ data: { items, totalBytes, finished } }) => {
+  const rows = items
     .map(d => ({
       ...d,
       x: Number(d.x),
@@ -26,51 +35,45 @@ streamingLoaderWorker.onmessage = e => {
       year: Number(d.date)
     }))
     .filter(d => d.year);
-
-  progressElement.innerText = `Loading - ${(e.data.progress * 100).toFixed(
-    0
-  )}%`;
-
   data.push(...rows);
 
-  if (e.data.progress == 1) {
+  progressElement.innerText = `Loading - ${totalBytes.toFixed(0)}`;
+
+  if (finished) {
+    progressElement.innerText = "";
+
+    // compute the fill color for each datapoint
     fillColor = fc
       .webglFillColor()
       .value(d => webglColor(languageColorScale(hashCode(d.language) % 10)))
       .data(data);
 
+      // create a spatial index for raidly finding the closest datapoint
     index = new Flatbush(data.length);
     const p = 0.01;
     data.forEach(d => index.add(d.x - p, d.y - p, d.x + p, d.y + p));
     index.finish();
   }
 
-  dataChanged = true;
+  renderLatch.set();
   redraw();
 };
 streamingLoaderWorker.postMessage("data.tsv");
 
 const languageColorScale = d3.scaleOrdinal(d3.schemeCategory10);
-
 const xScale = d3.scaleLinear().domain([-50, 50]);
 const yScale = d3.scaleLinear().domain([-50, 50]);
+const xScaleOriginal = xScale.copy();
+const yScaleOriginal = yScale.copy();
 
 const line = fc
   .seriesWebglPoint()
-  .equals((a, b) => {
-    const dataChangedTemp = dataChanged;
-    dataChanged = false;
-    return !dataChangedTemp;
-  })
+  .equals(() => !renderLatch.isSet())
   .size(1)
-  // optimised 'defined' step, we know that all datapoints are defined
   .defined(() => true)
   .crossValue(d => d.x)
   .mainValue(d => d.y)
   .decorate(program => fillColor(program));
-
-const xScaleOriginal = xScale.copy();
-const yScaleOriginal = yScale.copy();
 
 const zoom = d3.zoom().on("zoom", () => {
   // update the scales based on current zoom
@@ -94,25 +97,12 @@ const pointer = fc.pointer().on("point", ([coord]) => {
   const closestIndex = index.neighbors(x, y, 1);
   const closestDatum = data[closestIndex];
 
+  // if the closest point is within 20 pixels, show the annotation
   if (
-    distance(
-      coord.x,
-      coord.y,
-      xScale(closestDatum.x),
-      yScale(closestDatum.y)
-    ) < 20
+    distance(coord.x, coord.y, xScale(closestDatum.x), yScale(closestDatum.y)) <
+    20
   ) {
-    annotations[0] = {
-      note: {
-        label: closestDatum.first_author_name + " " + closestDatum.year,
-        bgPadding: 5,
-        title: trunc(closestDatum.title, 100)
-      },
-      x: closestDatum.x,
-      y: closestDatum.y,
-      dx: 20,
-      dy: 20
-    };
+    annotations[0] = createAnnotationData(closestDatum);
   }
 
   redraw();
@@ -138,17 +128,16 @@ const chart = fc
       .series([annotationSeries])
       .mapping(data => data.annotations)
   )
-  .decorate(
-    sel =>
-      sel
-        .enter()
-        .select("d3fc-svg.plot-area")
-        .on("measure.range", () => {
-          xScaleOriginal.range([0, d3.event.detail.width]);
-          yScaleOriginal.range([d3.event.detail.height, 0]);
-        })
-        .call(zoom)
-    .call(pointer)
+  .decorate(sel =>
+    sel
+      .enter()
+      .select("d3fc-svg.plot-area")
+      .on("measure.range", () => {
+        xScaleOriginal.range([0, d3.event.detail.width]);
+        yScaleOriginal.range([d3.event.detail.height, 0]);
+      })
+      .call(zoom)
+      .call(pointer)
   );
 
 // render the chart with the required data
