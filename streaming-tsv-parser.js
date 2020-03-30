@@ -18,6 +18,9 @@ onmessage = ({ data }) => {
         throw Error("Content-Length response header unavailable");
       }
 
+      const total = parseInt(contentLength, 10);
+      let loaded = 0;
+
       return new ReadableStream({
         start(controller) {
           const reader = response.body.getReader();
@@ -56,7 +59,8 @@ onmessage = ({ data }) => {
               })
               .filter(i => i);
 
-            postMessage(items);
+            loaded += value.byteLength;
+            postMessage({ items, progress: loaded / total });
 
             controller.enqueue(value);
             read();

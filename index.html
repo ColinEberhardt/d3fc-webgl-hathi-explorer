@@ -20,10 +20,23 @@
       .annotation-note-title {
         fill: black;
       }
+      body {
+        position: relative;
+      }
+      .fill {
+        position: absolute;
+        top: 0; bottom: 0; left: 0; right: 0
+      }
+      .no-pointer {
+        pointer-events: none;
+      }
     </style>
   </head>
   <body id="body">
-    <div id="chart" style="height: 100vh;"></div>
+    <div id="chart" class="fill"></div>
+    <div class="fill no-pointer">
+      <span id="progress">Loading ...</span>
+    </div>
     <script src="util.js"></script>
     <script src="annotation-series.js"></script>
     <script src="index.js"></script>

@@ -11,10 +11,14 @@ const webglColor = color => {
 
 let data = [];
 let dataChanged = false;
+let fillColor = i => i;
+let index;
+
+const progressElement = document.getElementById("progress");
 
 var streamingLoaderWorker = new Worker("streaming-tsv-parser.js");
 streamingLoaderWorker.onmessage = e => {
-  const rows = e.data
+  const rows = e.data.items
     .map(d => ({
       ...d,
       x: Number(d.x),
@@ -23,29 +27,30 @@ streamingLoaderWorker.onmessage = e => {
     }))
     .filter(d => d.year);
 
+  progressElement.innerText = `Loading - ${(e.data.progress * 100).toFixed(
+    0
+  )}%`;
+
   data.push(...rows);
+
+  if (e.data.progress == 1) {
+    fillColor = fc
+      .webglFillColor()
+      .value(d => webglColor(languageColorScale(hashCode(d.language) % 10)))
+      .data(data);
+
+    index = new Flatbush(data.length);
+    const p = 0.01;
+    data.forEach(d => index.add(d.x - p, d.y - p, d.x + p, d.y + p));
+    index.finish();
+  }
+
   dataChanged = true;
   redraw();
 };
 streamingLoaderWorker.postMessage("data.tsv");
 
-// create a flatbush spacial index
-// const index = new Flatbush(data.length);
-// const p = 0.01;
-// data.forEach(d => index.add(d.x - p, d.y - p, d.x + p, d.y + p));
-// index.finish();
-
-// const languageColorScale = d3.scaleOrdinal(d3.schemeCategory10);
-// const fillColor = fc
-//   .webglFillColor()
-//   .value((d, i) => webglColor(languageColorScale(hashCode(d.language) % 10)))
-//   .data(data);
-
-// const xExtent = fc.extentLinear().accessors([d => d.x]);
-// const yExtent = fc.extentLinear().accessors([d => d.y]);
-
-// const xScale = d3.scaleLinear().domain(xExtent(data));
-// const yScale = d3.scaleLinear().domain(yExtent(data));
+const languageColorScale = d3.scaleOrdinal(d3.schemeCategory10);
 
 const xScale = d3.scaleLinear().domain([-50, 50]);
 const yScale = d3.scaleLinear().domain([-50, 50]);
@@ -62,9 +67,7 @@ const line = fc
   .defined(() => true)
   .crossValue(d => d.x)
   .mainValue(d => d.y)
-  .decorate(program => {
-    // return fillColor(program);
-  });
+  .decorate(program => fillColor(program));
 
 const xScaleOriginal = xScale.copy();
 const yScaleOriginal = yScale.copy();
@@ -78,7 +81,7 @@ const zoom = d3.zoom().on("zoom", () => {
 
 const annotations = [];
 
-/* const pointer = fc.pointer().on("point", ([coord]) => {
+const pointer = fc.pointer().on("point", ([coord]) => {
   annotations.pop();
 
   if (!coord) {
@@ -113,7 +116,7 @@ const annotations = [];
   }
 
   redraw();
-});*/
+});
 
 const annotationSeries = seriesSvgAnnotation()
   .notePadding(15)
@@ -145,7 +148,7 @@ const chart = fc
           yScaleOriginal.range([d3.event.detail.height, 0]);
         })
         .call(zoom)
-    // .call(pointer)
+    .call(pointer)
   );
 
 // render the chart with the required data
