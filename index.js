@@ -5,12 +5,12 @@ const redraw = () =>
     .node()
     .requestRedraw();
 
-const progressElement = document.getElementById("progress");
 const renderLatch = createLatch();
 let data = [];
 let dataChanged = false;
 let fillColor = i => i;
 let index;
+let yearFillColor, languageFillColor;
 
 const createAnnotationData = datapoint => ({
   note: {
@@ -26,7 +26,9 @@ const createAnnotationData = datapoint => ({
 
 // create a web worker that streams the chart data
 const streamingLoaderWorker = new Worker("streaming-tsv-parser.js");
-streamingLoaderWorker.onmessage = ({ data: { items, totalBytes, finished } }) => {
+streamingLoaderWorker.onmessage = ({
+  data: { items, totalBytes, finished }
+}) => {
   const rows = items
     .map(d => ({
       ...d,
@@ -37,18 +39,29 @@ streamingLoaderWorker.onmessage = ({ data: { items, totalBytes, finished } }) =>
     .filter(d => d.year);
   data.push(...rows);
 
-  progressElement.innerText = `Loading - ${totalBytes.toFixed(0)}`;
-
   if (finished) {
-    progressElement.innerText = "";
-
     // compute the fill color for each datapoint
-    fillColor = fc
+    fillColor = languageFillColor = fc
       .webglFillColor()
       .value(d => webglColor(languageColorScale(hashCode(d.language) % 10)))
       .data(data);
+    yearFillColor = fc
+      .webglFillColor()
+      .value(d => webglColor(yearColorScale(d.year)))
+      .data(data);
 
-      // create a spatial index for raidly finding the closest datapoint
+    // wire up the fill color selector
+    iterateElements("#controls a", el => {
+      el.addEventListener("click", () => {
+        iterateElements("#controls a", el2 => el2.classList.remove("active"));
+        el.classList.add("active");
+        fillColor = el.id === "language" ? languageFillColor : yearFillColor;
+        renderLatch.set();
+        redraw();
+      });
+    });
+
+    // create a spatial index for rapidly finding the closest datapoint
     index = new Flatbush(data.length);
     const p = 0.01;
     data.forEach(d => index.add(d.x - p, d.y - p, d.x + p, d.y + p));
@@ -61,6 +74,10 @@ streamingLoaderWorker.onmessage = ({ data: { items, totalBytes, finished } }) =>
 streamingLoaderWorker.postMessage("data.tsv");
 
 const languageColorScale = d3.scaleOrdinal(d3.schemeCategory10);
+const yearColorScale = d3
+  .scaleSequential()
+  .domain([1850, 2000])
+  .interpolator(d3.interpolateRdYlGn);
 const xScale = d3.scaleLinear().domain([-50, 50]);
 const yScale = d3.scaleLinear().domain([-50, 50]);
 const xScaleOriginal = xScale.copy();
@@ -75,19 +92,22 @@ const line = fc
   .mainValue(d => d.y)
   .decorate(program => fillColor(program));
 
-const zoom = d3.zoom().on("zoom", () => {
-  // update the scales based on current zoom
-  xScale.domain(d3.event.transform.rescaleX(xScaleOriginal).domain());
-  yScale.domain(d3.event.transform.rescaleY(yScaleOriginal).domain());
-  redraw();
-});
+const zoom = d3
+  .zoom()
+  .scaleExtent([0.8, 10])
+  .on("zoom", () => {
+    // update the scales based on current zoom
+    xScale.domain(d3.event.transform.rescaleX(xScaleOriginal).domain());
+    yScale.domain(d3.event.transform.rescaleY(yScaleOriginal).domain());
+    redraw();
+  });
 
 const annotations = [];
 
 const pointer = fc.pointer().on("point", ([coord]) => {
   annotations.pop();
 
-  if (!coord) {
+  if (!coord || !index) {
     return;
   }
 

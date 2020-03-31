@@ -18,11 +18,16 @@ const webglColor = color => {
   return [r / 255, g / 255, b / 255, opacity];
 };
 
+const extent = range => Math.abs(range[1] - range[0]);
+
+const iterateElements = (selector, fn) =>
+  [].forEach.call(document.querySelectorAll(selector), fn);
+
 const createLatch = () => {
   let latched = false;
   return {
     set: () => {
-      latched = true
+      latched = true;
     },
     isSet: () => {
       previousLatchedState = latched;
@@ -31,5 +36,5 @@ const createLatch = () => {
       }
       return previousLatchedState;
     }
-  }
-}
+  };
+};
