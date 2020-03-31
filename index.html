@@ -34,11 +34,16 @@
         align-items: center;
       }
 
-      #title > h2 {
+      #title .subtitle {
         margin: 5px 0 5px 20px;
       }
 
-      #controls {
+      #title .subtitle h2 {
+        margin: 5px 0;
+      }
+
+      #title .controls {
+        margin: 5px 0 5px 20px;
         margin-right: 3em;
         text-align: right;
         flex: 1;
@@ -72,13 +77,16 @@
   </head>
   <body>
     <div id="title">
-      <h2>Hathi Trust Library</h2>
-      <div id="controls">
-        <a href="#" id="language" class="active">Language</a> |
-        <a id="year" href="#">Year</a> -
+      <div class="subtitle">
+        <h2>Hathi Trust Library</h2>
+        <small>sourcecode available in 
         <a href="https://github.com/ColinEberhardt/d3fc-webgl-hathi-explorer"
           >GitHub</a
-        >
+        ></small>
+      </div>
+      <div class="controls">
+        <a href="#" id="language" class="active">Language</a> |
+        <a id="year" href="#">Year</a> 
       </div>
     </div>
     <div id="chart" class="fill"></div>

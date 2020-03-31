@@ -51,9 +51,9 @@ streamingLoaderWorker.onmessage = ({
       .data(data);
 
     // wire up the fill color selector
-    iterateElements("#controls a", el => {
+    iterateElements(".controls a", el => {
       el.addEventListener("click", () => {
-        iterateElements("#controls a", el2 => el2.classList.remove("active"));
+        iterateElements(".controls a", el2 => el2.classList.remove("active"));
         el.classList.add("active");
         fillColor = el.id === "language" ? languageFillColor : yearFillColor;
         renderLatch.set();
