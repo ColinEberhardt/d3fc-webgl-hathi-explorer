@@ -1,16 +1,6 @@
-// Enqueues a redraw to occur on the next animation frame
-const redraw = () =>
-  d3
-    .select("d3fc-group")
-    .node()
-    .requestRedraw();
-
-const renderLatch = createLatch();
 let data = [];
 let dataChanged = false;
-let fillColor = i => i;
 let index;
-let yearFillColor, languageFillColor;
 
 const createAnnotationData = datapoint => ({
   note: {
@@ -37,26 +27,25 @@ streamingLoaderWorker.onmessage = ({
       year: Number(d.date)
     }))
     .filter(d => d.year);
-  data.push(...rows);
+  data = data.concat(rows);
 
   if (finished) {
     // compute the fill color for each datapoint
-    fillColor = languageFillColor = fc
+    const languageFill = d => webglColor(languageColorScale(hashCode(d.language) % 10));
+    const yearFill = d => webglColor(yearColorScale(d.year));
+
+    const fillColor = fc
       .webglFillColor()
-      .value(d => webglColor(languageColorScale(hashCode(d.language) % 10)))
+      .value(languageFill)
       .data(data);
-    yearFillColor = fc
-      .webglFillColor()
-      .value(d => webglColor(yearColorScale(d.year)))
-      .data(data);
+    line.decorate(program => fillColor(program));
 
     // wire up the fill color selector
     iterateElements(".controls a", el => {
       el.addEventListener("click", () => {
         iterateElements(".controls a", el2 => el2.classList.remove("active"));
         el.classList.add("active");
-        fillColor = el.id === "language" ? languageFillColor : yearFillColor;
-        renderLatch.set();
+        fillColor.value(el.id === "language" ? languageFill : yearFill);
         redraw();
       });
     });
@@ -68,7 +57,6 @@ streamingLoaderWorker.onmessage = ({
     index.finish();
   }
 
-  renderLatch.set();
   redraw();
 };
 streamingLoaderWorker.postMessage("data.tsv");
@@ -85,12 +73,11 @@ const yScaleOriginal = yScale.copy();
 
 const line = fc
   .seriesWebglPoint()
-  .equals(() => !renderLatch.isSet())
+  .equals((a, b) => a === b)
   .size(1)
   .defined(() => true)
   .crossValue(d => d.x)
-  .mainValue(d => d.y)
-  .decorate(program => fillColor(program));
+  .mainValue(d => d.y);
 
 const zoom = d3
   .zoom()
@@ -161,6 +148,9 @@ const chart = fc
   );
 
 // render the chart with the required data
-d3.select("#chart")
-  .datum({ annotations, data })
-  .call(chart);
+// Enqueues a redraw to occur on the next animation frame
+const redraw = () => {
+  d3.select("#chart")
+    .datum({ annotations, data })
+    .call(chart);
+};
