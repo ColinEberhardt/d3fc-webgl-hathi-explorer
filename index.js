@@ -1,6 +1,14 @@
+import { seriesSvgAnnotation } from "./annotation-series.js";
+import {
+  distance,
+  trunc,
+  hashCode,
+  webglColor,
+  iterateElements
+} from "./util.js";
+
 let data = [];
-let dataChanged = false;
-let index;
+let spatialIndex;
 
 const createAnnotationData = datapoint => ({
   note: {
@@ -33,7 +41,8 @@ streamingLoaderWorker.onmessage = ({
     document.getElementById("loading").style.display = "none";
 
     // compute the fill color for each datapoint
-    const languageFill = d => webglColor(languageColorScale(hashCode(d.language) % 10));
+    const languageFill = d =>
+      webglColor(languageColorScale(hashCode(d.language) % 10));
     const yearFill = d => webglColor(yearColorScale(d.year));
 
     const fillColor = fc
@@ -53,10 +62,10 @@ streamingLoaderWorker.onmessage = ({
     });
 
     // create a spatial index for rapidly finding the closest datapoint
-    index = new Flatbush(data.length);
+    spatialIndex = new Flatbush(data.length);
     const p = 0.01;
-    data.forEach(d => index.add(d.x - p, d.y - p, d.x + p, d.y + p));
-    index.finish();
+    data.forEach(d => spatialIndex.add(d.x - p, d.y - p, d.x + p, d.y + p));
+    spatialIndex.finish();
   }
 
   redraw();
@@ -96,14 +105,14 @@ const annotations = [];
 const pointer = fc.pointer().on("point", ([coord]) => {
   annotations.pop();
 
-  if (!coord || !index) {
+  if (!coord || !spatialIndex) {
     return;
   }
 
   // find the closes datapoint to the pointer
   const x = xScale.invert(coord.x);
   const y = yScale.invert(coord.y);
-  const closestIndex = index.neighbors(x, y, 1);
+  const closestIndex = spatialIndex.neighbors(x, y, 1);
   const closestDatum = data[closestIndex];
 
   // if the closest point is within 20 pixels, show the annotation

@@ -1,6 +1,6 @@
 // Wraps the most awesome d3-annotation component (https://d3-annotation.susielu.com/)
 // so that it can be rendered as a series
-const seriesSvgAnnotation = () => {
+export const seriesSvgAnnotation = () => {
   // the underlying component that we are wrapping
   const d3Annotation = d3.annotation();
 
