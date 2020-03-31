@@ -1,4 +1,3 @@
-const renderLatch = createLatch();
 let data = [];
 let dataChanged = false;
 let fillColor = i => i;
@@ -30,7 +29,7 @@ streamingLoaderWorker.onmessage = ({
       year: Number(d.date)
     }))
     .filter(d => d.year);
-  data.push(...rows);
+  data = data.concat(rows);
 
   if (finished) {
     // compute the fill color for each datapoint
@@ -49,7 +48,6 @@ streamingLoaderWorker.onmessage = ({
         iterateElements(".controls a", el2 => el2.classList.remove("active"));
         el.classList.add("active");
         fillColor = el.id === "language" ? languageFillColor : yearFillColor;
-        renderLatch.set();
         redraw();
       });
     });
@@ -61,7 +59,6 @@ streamingLoaderWorker.onmessage = ({
     index.finish();
   }
 
-  renderLatch.set();
   redraw();
 };
 streamingLoaderWorker.postMessage("data.tsv");
@@ -78,7 +75,7 @@ const yScaleOriginal = yScale.copy();
 
 const line = fc
   .seriesWebglPoint()
-  .equals(() => !renderLatch.isSet())
+  .equals((a, b) => a === b)
   .size(1)
   .defined(() => true)
   .crossValue(d => d.x)
