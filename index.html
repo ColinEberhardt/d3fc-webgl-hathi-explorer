@@ -50,8 +50,29 @@
         flex: 1;
       }
 
-      #chart {
+      #chart-container {
         flex: 1;
+        position: relative;
+      }
+
+      #chart-container > div {
+        position: absolute;
+        top: 0; bottom: 0; right: 0; left: 0;
+        text-align: middle;
+        vertical-align: middle;
+      }
+
+      #loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(255, 255, 255, 0.7);
+      }
+
+      #loading span {
+        flex: 1;
+        text-align: center;
+        font-size: 5em;
       }
 
       #chart d3fc-group {
@@ -80,7 +101,7 @@
     <div id="title">
       <div class="subtitle">
         <h2>Hathi Trust Library</h2>
-        <small>sourcecode available in 
+        <small>sourcecode available on 
         <a href="https://github.com/ColinEberhardt/d3fc-webgl-hathi-explorer"
           >GitHub</a
         ></small>
@@ -90,7 +111,11 @@
         <a id="year" href="#">Year</a> 
       </div>
     </div>
-    <div id="chart" class="fill"></div>
+
+    <div id="chart-container">
+      <div id="chart"></div>
+      <div id="loading"><span>loading...</span></div>
+    </div>
 
     <script src="util.js"></script>
     <script src="annotation-series.js"></script>

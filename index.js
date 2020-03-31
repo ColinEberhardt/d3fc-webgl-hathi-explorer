@@ -30,6 +30,8 @@ streamingLoaderWorker.onmessage = ({
   data = data.concat(rows);
 
   if (finished) {
+    document.getElementById("loading").style.display = "none";
+
     // compute the fill color for each datapoint
     const languageFill = d => webglColor(languageColorScale(hashCode(d.language) % 10));
     const yearFill = d => webglColor(yearColorScale(d.year));
@@ -126,14 +128,14 @@ const chart = fc
     fc
       .seriesWebglMulti()
       .series([line])
-      .mapping(data => data.data)
+      .mapping(d => d.data)
   )
   .svgPlotArea(
     // only render the annotations series on the SVG layer
     fc
       .seriesSvgMulti()
       .series([annotationSeries])
-      .mapping(data => data.annotations)
+      .mapping(d => d.annotations)
   )
   .decorate(sel =>
     sel
