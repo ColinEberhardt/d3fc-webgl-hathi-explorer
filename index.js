@@ -1,10 +1,3 @@
-// Enqueues a redraw to occur on the next animation frame
-const redraw = () =>
-  d3
-    .select("d3fc-group")
-    .node()
-    .requestRedraw();
-
 const renderLatch = createLatch();
 let data = [];
 let dataChanged = false;
@@ -161,6 +154,9 @@ const chart = fc
   );
 
 // render the chart with the required data
-d3.select("#chart")
-  .datum({ annotations, data })
-  .call(chart);
+// Enqueues a redraw to occur on the next animation frame
+const redraw = () => {
+  d3.select("#chart")
+    .datum({ annotations, data })
+    .call(chart);
+};
