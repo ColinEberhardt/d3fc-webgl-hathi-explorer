@@ -49,7 +49,7 @@ streamingLoaderWorker.onmessage = ({
       .webglFillColor()
       .value(languageFill)
       .data(data);
-    line.decorate(program => fillColor(program));
+    pointSeries.decorate(program => fillColor(program));
 
     // wire up the fill color selector
     iterateElements(".controls a", el => {
@@ -82,11 +82,10 @@ const yScale = d3.scaleLinear().domain([-50, 50]);
 const xScaleOriginal = xScale.copy();
 const yScaleOriginal = yScale.copy();
 
-const line = fc
+const pointSeries = fc
   .seriesWebglPoint()
   .equals((a, b) => a === b)
   .size(1)
-  .defined(() => true)
   .crossValue(d => d.x)
   .mainValue(d => d.y);
 
@@ -136,7 +135,7 @@ const chart = fc
     // only render the point series on the WebGL layer
     fc
       .seriesWebglMulti()
-      .series([line])
+      .series([pointSeries])
       .mapping(d => d.data)
   )
   .svgPlotArea(
