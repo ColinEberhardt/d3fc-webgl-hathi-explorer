@@ -1,4 +1,5 @@
 import { seriesSvgAnnotation } from "./annotation-series.js";
+import { interactiveChart } from "./interactiveChart.js";
 import {
   distance,
   trunc,
@@ -77,10 +78,9 @@ const yearColorScale = d3
   .scaleSequential()
   .domain([1850, 2000])
   .interpolator(d3.interpolateRdYlGn);
-const xScale = d3.scaleLinear().domain([-50, 50]);
-const yScale = d3.scaleLinear().domain([-50, 50]);
-const xScaleOriginal = xScale.copy();
-const yScaleOriginal = yScale.copy();
+
+const xScale = d3.scaleLinear(),
+  yScale = d3.scaleLinear();
 
 const pointSeries = fc
   .seriesWebglPoint()
@@ -88,16 +88,6 @@ const pointSeries = fc
   .size(1)
   .crossValue(d => d.x)
   .mainValue(d => d.y);
-
-const zoom = d3
-  .zoom()
-  .scaleExtent([0.8, 10])
-  .on("zoom", () => {
-    // update the scales based on current zoom
-    xScale.domain(d3.event.transform.rescaleX(xScaleOriginal).domain());
-    yScale.domain(d3.event.transform.rescaleY(yScaleOriginal).domain());
-    redraw();
-  });
 
 const annotations = [];
 
@@ -129,8 +119,10 @@ const annotationSeries = seriesSvgAnnotation()
   .notePadding(15)
   .type(d3.annotationCallout);
 
-const chart = fc
-  .chartCartesian(xScale, yScale)
+const chart = interactiveChart(xScale, yScale)
+  .xDomain([-50, 50])
+  .yDomain([-50, 50])
+  .scaleExtent([0.8, 10])
   .webglPlotArea(
     // only render the point series on the WebGL layer
     fc
@@ -149,11 +141,6 @@ const chart = fc
     sel
       .enter()
       .select("d3fc-svg.plot-area")
-      .on("measure.range", () => {
-        xScaleOriginal.range([0, d3.event.detail.width]);
-        yScaleOriginal.range([d3.event.detail.height, 0]);
-      })
-      .call(zoom)
       .call(pointer)
   );
 
