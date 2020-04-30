@@ -7,7 +7,50 @@ import {
   iterateElements
 } from "./util.js";
 
-let data = [];
+
+const webglRepeat = () => {
+
+  let orient = 'vertical';
+  let series = () => fc.seriesWebglLine();
+  const multi = fc.seriesWebglMulti();
+  let seriesCache = [];
+
+  const repeat = (data) => {
+    if (orient === 'vertical') {
+      throw new Error('work this out later');
+    } else {
+      const previousSeriesCache = seriesCache;
+      seriesCache = data.map((d, i) => i < previousSeriesCache.length ? previousSeriesCache[i] : series());
+      multi.series(seriesCache)
+        .mapping((data, index) => data[index]);
+    }
+    multi(data);
+  };
+
+  repeat.series = (...args) => {
+    if (!args.length) {
+      return series;
+    }
+    series = args[0];
+    seriesCache = [];
+    return repeat;
+  };
+
+  repeat.orient = (...args) => {
+    if (!args.length) {
+      return orient;
+    }
+    orient = args[0];
+    return repeat;
+  };
+
+  fc.rebindAll(repeat, multi, fc.exclude('series', 'mapping'));
+
+  return repeat;
+};
+
+
+const data = [];
 let spatialIndex;
 
 const createAnnotationData = datapoint => ({
@@ -22,6 +65,52 @@ const createAnnotationData = datapoint => ({
   dy: 20
 });
 
+// compute the fill color for each datapoint
+const languageFill = d =>
+webglColor(languageColorScale(hashCode(d.language) % 10));
+const yearFill = d => webglColor(yearColorScale(d.year));
+let fillColorValue = languageFill;
+
+const repeatSeries = webglRepeat()
+  .series(() => {
+
+    const fillColor = fc
+      .webglFillColor();
+
+    return fc
+      .seriesWebglPoint()
+      .equals((a, b) => a.length > 0)
+      .size(1)
+      .crossValue(d => d.x)
+      .mainValue(d => d.y)
+      .decorate((program, data) => {
+        // setting these properties invalidates their internal caches so only set them if we need to
+        if (fillColor.data() == null) {
+          fillColor.data(data);
+        }
+        if (fillColor.value() !== fillColorValue) {
+          fillColor.value(fillColorValue);
+        }
+        fillColor(program);
+      });
+  })
+  .orient('horizontal');
+
+
+// wire up the fill color selector
+iterateElements(".controls a", el => {
+  el.addEventListener("click", () => {
+    iterateElements(".controls a", el2 => el2.classList.remove("active"));
+    el.classList.add("active");
+    fillColorValue = el.id === "language" ? languageFill : yearFill;
+    redraw();
+  });
+});
+
+
+// create a spatial index for rapidly finding the closest datapoint
+// spatialIndex = new Flatbush(1e6);
+
 // create a web worker that streams the chart data
 const streamingLoaderWorker = new Worker("streaming-tsv-parser.js");
 streamingLoaderWorker.onmessage = ({
@@ -35,37 +124,16 @@ streamingLoaderWorker.onmessage = ({
       year: Number(d.date)
     }))
     .filter(d => d.year);
-  data = data.concat(rows);
+  // const p = 0.01;
+  // rows.forEach(d => spatialIndex.add(d.x - p, d.y - p, d.x + p, d.y + p));
+  if (rows.length > 0) {
+    data.push(rows);
+  }
 
   if (finished) {
     document.getElementById("loading").style.display = "none";
 
-    // compute the fill color for each datapoint
-    const languageFill = d =>
-      webglColor(languageColorScale(hashCode(d.language) % 10));
-    const yearFill = d => webglColor(yearColorScale(d.year));
-
-    const fillColor = fc
-      .webglFillColor()
-      .value(languageFill)
-      .data(data);
-    pointSeries.decorate(program => fillColor(program));
-
-    // wire up the fill color selector
-    iterateElements(".controls a", el => {
-      el.addEventListener("click", () => {
-        iterateElements(".controls a", el2 => el2.classList.remove("active"));
-        el.classList.add("active");
-        fillColor.value(el.id === "language" ? languageFill : yearFill);
-        redraw();
-      });
-    });
-
-    // create a spatial index for rapidly finding the closest datapoint
-    spatialIndex = new Flatbush(data.length);
-    const p = 0.01;
-    data.forEach(d => spatialIndex.add(d.x - p, d.y - p, d.x + p, d.y + p));
-    spatialIndex.finish();
+    // spatialIndex.finish();
   }
 
   redraw();
@@ -81,13 +149,6 @@ const xScale = d3.scaleLinear().domain([-50, 50]);
 const yScale = d3.scaleLinear().domain([-50, 50]);
 const xScaleOriginal = xScale.copy();
 const yScaleOriginal = yScale.copy();
-
-const pointSeries = fc
-  .seriesWebglPoint()
-  .equals((a, b) => a === b)
-  .size(1)
-  .crossValue(d => d.x)
-  .mainValue(d => d.y);
 
 const zoom = d3
   .zoom()
@@ -135,7 +196,7 @@ const chart = fc
     // only render the point series on the WebGL layer
     fc
       .seriesWebglMulti()
-      .series([pointSeries])
+      .series([repeatSeries])
       .mapping(d => d.data)
   )
   .svgPlotArea(
