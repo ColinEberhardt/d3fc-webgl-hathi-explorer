@@ -8,7 +8,7 @@ import {
 } from "./util.js";
 
 let data = [];
-let spatialIndex;
+let quadtree;
 
 const createAnnotationData = datapoint => ({
   note: {
@@ -45,10 +45,7 @@ streamingLoaderWorker.onmessage = ({
       webglColor(languageColorScale(hashCode(d.language) % 10));
     const yearFill = d => webglColor(yearColorScale(d.year));
 
-    const fillColor = fc
-      .webglFillColor()
-      .value(languageFill)
-      .data(data);
+    const fillColor = fc.webglFillColor().value(languageFill).data(data);
     pointSeries.decorate(program => fillColor(program));
 
     // wire up the fill color selector
@@ -62,10 +59,11 @@ streamingLoaderWorker.onmessage = ({
     });
 
     // create a spatial index for rapidly finding the closest datapoint
-    spatialIndex = new Flatbush(data.length);
-    const p = 0.01;
-    data.forEach(d => spatialIndex.add(d.x - p, d.y - p, d.x + p, d.y + p));
-    spatialIndex.finish();
+    quadtree = d3
+      .quadtree()
+      .x(d => d.x)
+      .y(d => d.y)
+      .addAll(data);
   }
 
   redraw();
@@ -104,21 +102,18 @@ const annotations = [];
 const pointer = fc.pointer().on("point", ([coord]) => {
   annotations.pop();
 
-  if (!coord || !spatialIndex) {
+  if (!coord || !quadtree) {
     return;
   }
 
   // find the closes datapoint to the pointer
   const x = xScale.invert(coord.x);
   const y = yScale.invert(coord.y);
-  const closestIndex = spatialIndex.neighbors(x, y, 1);
-  const closestDatum = data[closestIndex];
+  const radius = Math.abs(xScale.invert(coord.x) - xScale.invert(coord.x - 20));
+  const closestDatum = quadtree.find(x, y, radius);
 
   // if the closest point is within 20 pixels, show the annotation
-  if (
-    distance(coord.x, coord.y, xScale(closestDatum.x), yScale(closestDatum.y)) <
-    20
-  ) {
+  if (closestDatum) {
     annotations[0] = createAnnotationData(closestDatum);
   }
 
@@ -160,7 +155,5 @@ const chart = fc
 // render the chart with the required data
 // Enqueues a redraw to occur on the next animation frame
 const redraw = () => {
-  d3.select("#chart")
-    .datum({ annotations, data })
-    .call(chart);
+  d3.select("#chart").datum({ annotations, data }).call(chart);
 };
