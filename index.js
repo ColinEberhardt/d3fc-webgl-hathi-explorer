@@ -99,8 +99,9 @@ const zoom = d3
 
 const annotations = [];
 
+let speaking = false;
+
 const pointer = fc.pointer().on("point", ([coord]) => {
-  annotations.pop();
 
   if (!coord || !quadtree) {
     return;
@@ -114,7 +115,17 @@ const pointer = fc.pointer().on("point", ([coord]) => {
 
   // if the closest point is within 20 pixels, show the annotation
   if (closestDatum) {
+    const previousClosest = annotations[0];
+    if (!speaking && previousClosest && (previousClosest.ix  !== closestDatum.ix)) {
+      const msg = new SpeechSynthesisUtterance(closestDatum.lab);
+      msg.addEventListener("end", () => { console.log("foo"); speaking = false; });
+      window.speechSynthesis.speak(msg);
+      console.log("speaking", closestDatum.lab);
+      speaking = true;
+    }
     annotations[0] = createAnnotationData(closestDatum);
+  } else {
+    annotations.pop();
   }
 
   redraw();
