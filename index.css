@@ -1,0 +1,21 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+.annotation-note-bg {
+    fill-opacity: 0.6;
+  }
+
+.annotation-note-label,
+.annotation-note-title {
+    fill: unset;
+}
+
+#chart d3fc-group {
+    grid-template-columns: 1px auto 1fr 4px 0;
+    grid-template-rows: 1px auto 1fr 4px 0;
+}
+
+.tick text {
+    display: none;
+}
